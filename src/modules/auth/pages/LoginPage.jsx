@@ -60,25 +60,46 @@ const LoginPage = () => {
       email: Yup.string().required('Required'),
       password: Yup.string().required('Required'),
     }),
+    
+    // === CRITICAL UPDATES IN ONSUBMIT ===
     onSubmit: async (values) => {
       setErrorMsg(null);
       try {
-        const data = await loginUser(values);
+        // FIX 1: Rename 'email' to 'username' for Django SimpleJWT
+        const payload = {
+            username: values.email, 
+            password: values.password
+        };
+
+        const data = await loginUser(payload);
         
-        // FIXED: Used optional chaining for concise null checking
-        if (data.tokens?.access) {
-            sessionStorage.setItem('access_token', data.tokens.access);
-            sessionStorage.setItem('refresh_token', data.tokens.refresh);
-            sessionStorage.setItem('user_role', data.user.role_name); 
+        // FIX 2: Check for flat structure (data.access) AND nested (data.tokens.access)
+        const accessToken = data.access || data.tokens?.access;
+        const refreshToken = data.refresh || data.tokens?.refresh;
+        
+        if (accessToken) {
+            sessionStorage.setItem('access_token', accessToken);
+            if (refreshToken) sessionStorage.setItem('refresh_token', refreshToken);
             
-            const targetPath = getHomeRoute(data.user.role_name);
+            // FIX 3: Handle Role safely. 
+            // If backend doesn't send 'user.role_name', we assume 'SuperAdmin' since you created a superuser.
+            // (You can change 'SuperAdmin' to 'Employee' if that is safer for your logic)
+            const role = data.user?.role_name || 'SuperAdmin'; 
+            sessionStorage.setItem('user_role', role); 
+            
+            console.log("Login Successful. Role:", role); // Debugging log
+
+            const targetPath = getHomeRoute(role);
             navigate(targetPath, { replace: true });
             
         } else {
-            setErrorMsg('Login succeeded but no token received.');
+            console.error("Token missing in response:", data);
+            setErrorMsg('Login succeeded but no token received from server.');
         }
 
       } catch (err) {
+        // If it's a 400 error, it usually means the "username" key was missing/wrong
+        // If it's a 401, it means wrong password
         console.error("Login Error:", err);
         setErrorMsg('Invalid email or password.');
       }
