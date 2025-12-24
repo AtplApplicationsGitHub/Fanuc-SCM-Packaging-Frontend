@@ -13,7 +13,7 @@ RUN rm -rf ./*
 COPY --from=build /app/dist .
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY env.sh /docker-entrypoint.d/entrypoint.sh
+COPY entrypoint.sh /docker-entrypoint.d/entrypoint.sh
 RUN chmod +x /docker-entrypoint.d/entrypoint.sh
  
 # 5. EXECUTE SCRIPT ON START
