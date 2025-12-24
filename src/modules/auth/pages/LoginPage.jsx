@@ -61,46 +61,54 @@ const LoginPage = () => {
       password: Yup.string().required('Required'),
     }),
     
-    // === CRITICAL UPDATES IN ONSUBMIT ===
     onSubmit: async (values) => {
       setErrorMsg(null);
       try {
-        // FIX 1: Rename 'email' to 'username' for Django SimpleJWT
+        // === FIX 1: Send 'email' to match Django LoginSerializer ===
         const payload = {
-            username: values.email, 
+            email: values.email, 
             password: values.password
         };
 
         const data = await loginUser(payload);
         
-        // FIX 2: Check for flat structure (data.access) AND nested (data.tokens.access)
-        const accessToken = data.access || data.tokens?.access;
-        const refreshToken = data.refresh || data.tokens?.refresh;
+        // === FIX 2: Handle Nested Token Structure (data.tokens.access) ===
+        // Your views.py returns: { tokens: { access: "...", refresh: "..." }, ... }
+        const accessToken = data.tokens?.access;
+        const refreshToken = data.tokens?.refresh;
         
         if (accessToken) {
+            // 1. Store Credentials
             sessionStorage.setItem('access_token', accessToken);
             if (refreshToken) sessionStorage.setItem('refresh_token', refreshToken);
             
-            // FIX 3: Handle Role safely. 
-            // If backend doesn't send 'user.role_name', we assume 'SuperAdmin' since you created a superuser.
-            // (You can change 'SuperAdmin' to 'Employee' if that is safer for your logic)
-            const role = data.user?.role_name || 'SuperAdmin'; 
-            sessionStorage.setItem('user_role', role); 
+            // 2. Handle Role
+            // Note: If you created a Superuser via CLI, role_name might be null.
+            // You must assign a role (e.g., 'SCM Admin') via Django Admin or Shell.
+            const role = data.user?.role_name; 
             
-            console.log("Login Successful. Role:", role); // Debugging log
-
-            const targetPath = getHomeRoute(role);
-            navigate(targetPath, { replace: true });
+            if (role) {
+                sessionStorage.setItem('user_role', role);
+                console.log("Login Successful. Redirecting for Role:", role);
+                
+                // 3. Redirect
+                const targetPath = getHomeRoute(role);
+                navigate(targetPath, { replace: true });
+            } else {
+                console.warn("User has no role assigned. Defaulting to fallback.");
+                // Fallback prevents getting stuck if role is null
+                sessionStorage.setItem('user_role', 'Guest'); 
+                navigate('/rbr-info', { replace: true });
+            }
             
         } else {
-            console.error("Token missing in response:", data);
-            setErrorMsg('Login succeeded but no token received from server.');
+            console.error("Token structure mismatch:", data);
+            setErrorMsg('Login succeeded but authentication token was missing.');
         }
 
       } catch (err) {
-        // If it's a 400 error, it usually means the "username" key was missing/wrong
-        // If it's a 401, it means wrong password
         console.error("Login Error:", err);
+        // Display a generic message to the user, but log the specific error
         setErrorMsg('Invalid email or password.');
       }
     },
