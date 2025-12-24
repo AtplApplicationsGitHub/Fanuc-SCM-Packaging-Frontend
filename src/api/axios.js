@@ -1,10 +1,15 @@
 /* client/src/api/axios.js */
 import axios from 'axios';
 
-// Production Update: Use Vite environment variable for the API URL.
-// When building for Docker, pass: VITE_API_BASE_URL=https://api.yourdomain.com/api
+// DYNAMIC CONFIGURATION STRATEGY
+// 1. Runtime (Docker): window._env_.VITE_API_BASE_URL (Injected via env.sh)
+// 2. Build-time (Local Dev): import.meta.env.VITE_API_BASE_URL
+// 3. Fallback: Localhost default
+const runtimeBaseURL = window._env_ && window._env_.VITE_API_BASE_URL;
+const viteBaseURL = import.meta.env.VITE_API_BASE_URL;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api', 
+  baseURL: runtimeBaseURL || viteBaseURL || 'http://127.0.0.1:8000/api', 
   headers: {
     'Content-Type': 'application/json',
   },
