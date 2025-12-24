@@ -1,8 +1,15 @@
 /* client/src/api/axios.js */
 import axios from 'axios';
 
+// DYNAMIC CONFIGURATION STRATEGY
+// 1. Runtime (Docker): window._env_.VITE_API_BASE_URL (Injected via env.sh)
+// 2. Build-time (Local Dev): import.meta.env.VITE_API_BASE_URL
+// 3. Fallback: Localhost default
+const runtimeBaseURL = window._env_ && window._env_.VITE_API_BASE_URL;
+const viteBaseURL = import.meta.env.VITE_API_BASE_URL;
+
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', 
+  baseURL: runtimeBaseURL || viteBaseURL || 'http://127.0.0.1:8000/api', 
   headers: {
     'Content-Type': 'application/json',
   },
